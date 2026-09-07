@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { getNotes } from "@/actions/notes"
 import Link from "next/link"
 import { format } from "date-fns"
-import { Mic, PenLine, Sparkles, Calendar, Clock, FileText } from "lucide-react"
+import { Mic, PenLine, Sparkles, Calendar, Clock, FileText, BrainCircuit } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 

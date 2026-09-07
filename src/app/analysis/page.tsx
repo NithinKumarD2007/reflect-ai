@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, TrendingUp, Target, Clock, RefreshCw, Trophy, AlertTriangle, Sparkles, Activity } from "lucide-react"
 
 type AnalysisResult = {
@@ -87,11 +86,10 @@ export default function AnalysisPage() {
         </div>
         
         <div className="flex gap-2">
-          {/* Using native selects for simplicity if Shadcn Select isn't fully installed. We installed Select? Wait, I didn't install 'select'. I'll use native selects styled like Shadcn. */}
           <select 
             value={date.getMonth().toString()} 
             onChange={(e) => handleMonthChange(e.target.value)}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {months.map((m, i) => (
               <option key={i} value={i}>{m}</option>
@@ -100,7 +98,7 @@ export default function AnalysisPage() {
           <select 
             value={date.getFullYear().toString()} 
             onChange={(e) => handleYearChange(e.target.value)}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {[2024, 2025, 2026, 2027].map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -159,9 +157,8 @@ export default function AnalysisPage() {
                 </div>
                 <CardContent className="p-6 relative z-10">
                   <p className="text-sm text-primary font-medium mb-1 uppercase tracking-wider">Productivity</p>
-                  {/* Fake gaming XP bar based on note count */}
                   <div className="h-2 w-full bg-primary/20 rounded-full overflow-hidden mt-3">
-                    <div className="h-full bg-primary" style={{ width: \`\${Math.min(stats.total * 5, 100)}%\` }} />
+                    <div className="h-full bg-primary" style={{ width: `${Math.min(stats.total * 5, 100)}%` }} />
                   </div>
                   <p className="text-xs text-primary/70 mt-2 text-right">Lvl {Math.floor(stats.total / 10) + 1}</p>
                 </CardContent>

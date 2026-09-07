@@ -12,10 +12,13 @@ export default async function NoteDetailPage({ params }: { params: { id: string 
   const session = await auth()
   if (!session?.user?.id) redirect("/api/auth/signin")
 
+  // After the redirect guard, TypeScript still doesn't know session.user.id is defined
+  const userId = session!.user!.id as string
+
   const note = await prisma.note.findUnique({
     where: {
       id: params.id,
-      userId: session.user.id
+      userId: userId,
     }
   })
 
@@ -30,6 +33,12 @@ export default async function NoteDetailPage({ params }: { params: { id: string 
     )
   }
 
+  async function handleDelete() {
+    "use server"
+    await deleteNote(note!.id)
+    redirect("/notes")
+  }
+
   return (
     <div className="container max-w-screen-md mx-auto px-4 py-8 space-y-6">
       
@@ -40,11 +49,7 @@ export default async function NoteDetailPage({ params }: { params: { id: string 
             Back to Notes
           </Button>
         </Link>
-        <form action={async () => {
-          "use server"
-          await deleteNote(note.id)
-          redirect("/notes")
-        }}>
+        <form action={handleDelete}>
           <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
             <Trash className="h-4 w-4" />
           </Button>

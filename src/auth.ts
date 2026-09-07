@@ -1,12 +1,15 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import prisma from "./lib/prisma"
 import bcrypt from "bcryptjs"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  // NOTE: PrismaAdapter is not compatible with JWT sessions + Credentials provider.
+  // For local dev with Credentials, we use JWT only (no adapter).
   session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+  },
   providers: [
     Credentials({
       name: "Credentials",
@@ -19,28 +22,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
         
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
+        const email = credentials.email as string
+        const password = credentials.password as string
+
+        let user = await prisma.user.findUnique({
+          where: { email }
         })
 
-        // For local development, if user doesn't exist, we will create one for simplicity
+        // Auto-register for local dev: if user doesn't exist, create one
         if (!user) {
-          const hashedPassword = await bcrypt.hash(credentials.password as string, 10)
-          const newUser = await prisma.user.create({
+          const hashedPassword = await bcrypt.hash(password, 10)
+          user = await prisma.user.create({
             data: {
-              email: credentials.email as string,
+              email,
               password: hashedPassword,
             }
           })
-          return newUser
+          return { id: user.id, email: user.email, name: user.name }
         }
         
         if (user.password) {
-          const isMatch = await bcrypt.compare(credentials.password as string, user.password)
+          const isMatch = await bcrypt.compare(password, user.password)
           if (!isMatch) return null
         }
 
-        return user
+        return { id: user.id, email: user.email, name: user.name }
       }
     })
   ],
@@ -52,7 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token
     },
     session({ session, token }) {
-      if (session.user && token.id) {
+      if (session.user) {
         session.user.id = token.id as string
       }
       return session

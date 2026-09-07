@@ -6,19 +6,18 @@ import { format } from "date-fns"
 import { Mic, PenLine, Calendar, Clock, Search } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 
+// In Next.js 15 App Router, searchParams is a Promise
 export default async function AllNotesPage({
   searchParams,
 }: {
-  searchParams: { q?: string }
+  searchParams: Promise<{ q?: string }>
 }) {
   const session = await auth()
   if (!session) redirect("/api/auth/signin")
   
-  // Next.js 15 requires awaiting searchParams, but we are using 14. 
-  // Let's resolve the query safely.
-  const query = searchParams?.q || ""
+  const resolvedParams = await searchParams
+  const query = resolvedParams?.q || ""
   const notes = await getNotes(query)
 
   return (
@@ -45,7 +44,7 @@ export default async function AllNotesPage({
       ) : (
         <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
           {notes.map((note) => (
-            <div key={note.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+            <div key={note.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
               <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white/10 bg-card/80 backdrop-blur-sm text-muted-foreground shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-lg z-10">
                 {note.inputMethod === "VOICE" ? <Mic className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
               </div>

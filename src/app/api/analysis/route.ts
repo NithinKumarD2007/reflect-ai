@@ -1,4 +1,4 @@
-import { NextResponse } from "next/response"
+import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { auth } from "@/auth"
 import prisma from "@/lib/prisma"
