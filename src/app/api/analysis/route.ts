@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
     // Prepare context
     const notesContext = notes.map(n => `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")

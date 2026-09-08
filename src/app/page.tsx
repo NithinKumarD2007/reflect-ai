@@ -77,15 +77,24 @@ export default async function DashboardPage() {
           </div>
 
           {notes.length === 0 ? (
-            <div className="bg-white/[0.03] border border-dashed border-white/15 rounded-2xl p-10 text-center">
-              <Sparkles className="h-8 w-8 text-white/20 mx-auto mb-3" />
-              <p className="text-white/50 text-sm font-medium">No notes yet</p>
-              <p className="text-white/25 text-xs mt-1">Record a voice note or write something to get started.</p>
-              <Link href="/notes/voice">
-                <button className="mt-4 text-xs px-4 py-2 bg-white text-black rounded-lg font-semibold hover:bg-white/90 transition-all">
-                  Get Started
-                </button>
-              </Link>
+            <div className="bg-white/[0.03] border border-dashed border-white/15 rounded-2xl p-8 sm:p-10 text-center">
+              <FileText className="h-10 w-10 text-white/10 mx-auto mb-4" />
+              <p className="text-white/60 text-base font-medium">Your recent notes will appear here</p>
+              <p className="text-white/30 text-sm mt-2 max-w-sm mx-auto">
+                You haven't created any notes yet. Record your voice or type a new note to start building your AI-powered knowledge base.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
+                <Link href="/notes/voice">
+                  <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all w-full sm:w-auto">
+                    <Mic className="h-4 w-4" /> Record Voice
+                  </button>
+                </Link>
+                <Link href="/notes/new">
+                  <button className="flex items-center gap-2 px-5 py-2.5 bg-white/10 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition-all w-full sm:w-auto">
+                    <PenLine className="h-4 w-4" /> Type a Note
+                  </button>
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="space-y-2">
