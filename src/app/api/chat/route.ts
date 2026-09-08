@@ -3,22 +3,23 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { auth } from "@/auth"
 import prisma from "@/lib/prisma"
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "")
-
 export async function POST(req: Request) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
+      return NextResponse.json({
+        error: "Gemini API key is not configured. Please add your GEMINI_API_KEY to the .env file and restart the server."
+      }, { status: 500 })
     }
 
     const { message, history } = await req.json()
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
-    }
-
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "AI is not configured" }, { status: 500 })
     }
 
     // Fetch the last 100 notes as context (or maybe all notes if within token limits)
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
 
     const notesContext = notes.map(n => `[${n.createdAt.toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
 
+    const genAI = new GoogleGenerativeAI(apiKey)
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
     const systemInstruction = `
@@ -63,8 +65,11 @@ Rules:
     const responseText = result.response.text()
 
     return NextResponse.json({ response: responseText })
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Chat Error:", error)
-    return NextResponse.json({ error: "Failed to process chat" }, { status: 500 })
+    const message = process.env.NODE_ENV === "development"
+      ? `Chat failed: ${error?.message || String(error)}`
+      : "Failed to process chat. Please check your Gemini API key."
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
