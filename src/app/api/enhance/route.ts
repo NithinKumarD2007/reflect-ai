@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     // Instantiate inside handler so key is read fresh each request
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" })
 
     const prompt = `You are an AI assistant that enhances raw voice notes.
 The user dictates notes that may contain filler words, repeated words, broken sentences, or lack structure.
