@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
-import { auth } from "@/auth"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 

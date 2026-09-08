@@ -1,4 +1,4 @@
-import { auth } from "@/auth"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { getNotes } from "@/actions/notes"
 import Link from "next/link"
@@ -8,9 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 
 export default async function DashboardPage() {
-  const session = await auth()
-  if (!session) {
-    redirect("/api/auth/signin")
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
   }
 
   const notes = await getNotes()
@@ -20,7 +22,7 @@ export default async function DashboardPage() {
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Welcome back{session.user?.name ? `, ${session.user.name}` : ""}</h1>
+          <h1 className="text-3xl font-bold">Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ""}</h1>
           <p className="text-muted-foreground mt-1">Capture your thoughts, we'll do the rest.</p>
         </div>
         <div className="flex gap-3">
@@ -86,11 +88,11 @@ export default async function DashboardPage() {
                       <div className="flex items-center text-xs text-muted-foreground gap-4">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {format(note.createdAt, "MMM d, yyyy")}
+                          {format(new Date(note.createdAt), "MMM d, yyyy")}
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {format(note.createdAt, "h:mm a")}
+                          {format(new Date(note.createdAt), "h:mm a")}
                         </span>
                       </div>
                     </Link>

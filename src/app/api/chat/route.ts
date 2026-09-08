@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
-import { auth } from "@/auth"
-import prisma from "@/lib/prisma"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 
@@ -23,13 +24,16 @@ export async function POST(req: Request) {
     }
 
     // Fetch the last 100 notes as context (or maybe all notes if within token limits)
-    const notes = await prisma.note.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      take: 200
-    })
+    const { data: notes, error: dbError } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('userId', user.id)
+      .order('createdAt', { ascending: false })
+      .limit(200)
 
-    const notesContext = notes.map(n => `[${n.createdAt.toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
+    if (dbError) throw dbError
+
+    const notesContext = (notes || []).map(n => `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
 
     const genAI = new GoogleGenerativeAI(apiKey)
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })

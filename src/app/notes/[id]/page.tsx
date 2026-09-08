@@ -1,26 +1,20 @@
-import { auth } from "@/auth"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import prisma from "@/lib/prisma"
 import { format } from "date-fns"
 import { Calendar, Clock, Mic, PenLine, ArrowLeft, Trash } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { deleteNote } from "@/actions/notes"
+import { deleteNote, getNote } from "@/actions/notes"
 
-export default async function NoteDetailPage({ params }: { params: { id: string } }) {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/api/auth/signin")
+export default async function NoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user?.id) redirect("/login")
 
-  // After the redirect guard, TypeScript still doesn't know session.user.id is defined
-  const userId = session!.user!.id as string
-
-  const note = await prisma.note.findUnique({
-    where: {
-      id: params.id,
-      userId: userId,
-    }
-  })
+  const { id } = await params
+  const note = await getNote(id)
 
   if (!note) {
     return (
@@ -64,11 +58,11 @@ export default async function NoteDetailPage({ params }: { params: { id: string 
               <div className="flex items-center text-sm text-muted-foreground gap-4">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
-                  {format(note.createdAt, "MMMM d, yyyy")}
+                  {format(new Date(note.createdAt), "MMMM d, yyyy")}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-4 w-4" />
-                  {format(note.createdAt, "h:mm a")}
+                  {format(new Date(note.createdAt), "h:mm a")}
                 </span>
               </div>
             </div>

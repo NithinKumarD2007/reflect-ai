@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
-import { auth } from "@/auth"
-import prisma from "@/lib/prisma"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 
@@ -23,26 +24,23 @@ export async function POST(req: Request) {
     }
 
     // Fetch notes for the specific month
-    const startDate = new Date(year, month, 1)
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59)
+    const startDate = new Date(year, month, 1).toISOString()
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59).toISOString()
 
-    const notes = await prisma.note.findMany({
-      where: {
-        userId: session.user.id,
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        }
-      },
-      orderBy: {
-        createdAt: "asc"
-      }
-    })
+    const { data: notes, error: dbError } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('userId', user.id)
+      .gte('createdAt', startDate)
+      .lte('createdAt', endDate)
+      .order('createdAt', { ascending: true })
 
-    if (notes.length === 0) {
-      return NextResponse.json({
-        error: "Not enough notes yet",
-        message: "Add more notes during the month and the AI will have more information to analyze."
+    if (dbError) throw dbError
+
+    if (!notes || notes.length === 0) {
+      return NextResponse.json({ 
+        error: "Not enough notes yet", 
+        message: "Add more notes during the month and the AI will have more information to analyze." 
       }, { status: 404 })
     }
 
@@ -50,7 +48,7 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     // Prepare context
-    const notesContext = notes.map(n => `[${n.createdAt.toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
+    const notesContext = notes.map(n => `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
 
     const prompt = `
 You are an AI Personal Activity Analyzer.
@@ -79,12 +77,12 @@ ${notesContext}
 
     const result = await model.generateContent(prompt)
     const responseText = result.response.text()
-
+    
     // Clean up potential markdown blocks
     const jsonString = responseText.replace(/```json/g, "").replace(/```/g, "").trim()
     const analysis = JSON.parse(jsonString)
 
-    return NextResponse.json({
+    return NextResponse.json({ 
       analysis,
       stats: {
         total: notes.length,

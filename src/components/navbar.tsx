@@ -1,10 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useSession, signOut } from "next-auth/react"
 import { Mic, PenLine, LayoutDashboard, BrainCircuit, Sparkles, LogOut, User, Menu, X } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 const navLinks = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -15,8 +16,33 @@ const navLinks = [
 ]
 
 export function Navbar() {
-  const { data: session } = useSession()
+  const [user, setUser] = useState<{ email?: string } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+    }
+    fetchUser()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null)
+      }
+    )
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [supabase.auth])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <nav className="fixed top-0 w-full z-50 glass-panel border-b border-border/40">
@@ -48,20 +74,20 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          {session?.user ? (
+          {user ? (
             <div className="hidden md:flex items-center gap-2">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10">
                 <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
                   <User className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <span className="text-sm text-muted-foreground max-w-[120px] truncate">
-                  {session.user.email}
+                  {user.email}
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={handleSignOut}
                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="h-4 w-4" />
@@ -106,9 +132,9 @@ export function Navbar() {
               {label}
             </Link>
           ))}
-          {session?.user && (
+          {user && (
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleSignOut}
               className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-destructive/80 hover:text-destructive hover:bg-destructive/10 w-full transition-colors mt-2 border-t border-border/40 pt-4"
             >
               <LogOut className="h-4 w-4" />

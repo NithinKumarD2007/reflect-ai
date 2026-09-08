@@ -1,4 +1,4 @@
-import { auth } from "@/auth"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { getNotes } from "@/actions/notes"
 import Link from "next/link"
@@ -13,8 +13,9 @@ export default async function AllNotesPage({
 }: {
   searchParams: Promise<{ q?: string }>
 }) {
-  const session = await auth()
-  if (!session) redirect("/api/auth/signin")
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
   
   const resolvedParams = await searchParams
   const query = resolvedParams?.q || ""
@@ -63,11 +64,11 @@ export default async function AllNotesPage({
                     <div className="flex items-center text-xs text-muted-foreground gap-4">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {format(note.createdAt, "MMM d, yyyy")}
+                        {format(new Date(note.createdAt), "MMM d, yyyy")}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {format(note.createdAt, "h:mm a")}
+                        {format(new Date(note.createdAt), "h:mm a")}
                       </span>
                     </div>
                   </Link>
