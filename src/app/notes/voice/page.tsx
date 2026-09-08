@@ -1,15 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { saveNote } from "@/actions/notes"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Mic, Square, Loader2, Sparkles, Wand2, RefreshCw } from "lucide-react"
 
-// Types for Web Speech API
 declare global {
   interface Window {
     SpeechRecognition: any;
@@ -17,7 +10,30 @@ declare global {
   }
 }
 
-type UIState = "READY" | "RECORDING" | "ENHANCING" | "REVIEW"
+import { saveNote } from "@/actions/notes"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Mic, Square, Loader2, Sparkles, Wand2, RefreshCw, AlertTriangle } from "lucide-react"
+
+type UIState = "READY" | "RECORDING" | "TRANSCRIBING" | "ENHANCING" | "REVIEW" | "ERROR"
+type RecordingMethod = "speech_api" | "media_recorder" | "unknown"
+
+// Detect best MIME type for MediaRecorder
+function getSupportedMimeType(): string {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+    "audio/mp4",
+  ]
+  for (const type of types) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) {
+      return type
+    }
+  }
+  return ""
+}
 
 export default function VoiceNotePage() {
   const router = useRouter()
@@ -28,73 +44,218 @@ export default function VoiceNotePage() {
   const [title, setTitle] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
-  
+  const [recordingMethod, setRecordingMethod] = useState<RecordingMethod>("unknown")
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+
   const recognitionRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const isRecordingRef = useRef(false)
 
+  // Detect recording capability
   useEffect(() => {
-    // Initialize Speech Recognition
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.continuous = true
-        recognitionRef.current.interimResults = true
+    const hasSpeechApi = !!(
+      typeof window !== "undefined" &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition)
+    )
+    const hasMediaRecorder = typeof MediaRecorder !== "undefined"
 
-        recognitionRef.current.onresult = (event: any) => {
-          let finalTranscript = ""
-          let interimTranscript = ""
-          
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript + " "
-            } else {
-              interimTranscript += event.results[i][0].transcript
-            }
-          }
-          
-          if (finalTranscript) {
-            setRawText((prev) => prev + finalTranscript)
-          }
-          setInterimText(interimTranscript)
-        }
-
-        recognitionRef.current.onerror = (event: any) => {
-          console.error("Speech recognition error", event.error)
-          setErrorMsg("Speech recognition error: " + event.error)
-          stopRecording()
-        }
-      } else {
-        setErrorMsg("Your browser does not support Speech Recognition. Try Chrome or Edge.")
-      }
+    if (hasSpeechApi) {
+      setRecordingMethod("speech_api")
+    } else if (hasMediaRecorder) {
+      setRecordingMethod("media_recorder")
+    } else {
+      setRecordingMethod("unknown")
+      setErrorMsg("Your browser does not support voice recording. Please use Chrome or Safari.")
     }
   }, [])
 
+  // Timer tick
+  const startTimer = () => {
+    setRecordingSeconds(0)
+    timerRef.current = setInterval(() => {
+      setRecordingSeconds(s => s + 1)
+    }, 1000)
+  }
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`
+
+  // ── SPEECH API PATH ──
+  const startSpeechRecording = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = "en-US"
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = ""
+      let interimTranscript = ""
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + " "
+        } else {
+          interimTranscript += event.results[i][0].transcript
+        }
+      }
+      if (finalTranscript) setRawText(prev => prev + finalTranscript)
+      setInterimText(interimTranscript)
+    }
+
+    recognition.onerror = (event: any) => {
+      console.error("SpeechRecognition error:", event.error)
+      if (event.error === "not-allowed") {
+        setErrorMsg("Microphone permission denied. Please allow microphone access and try again.")
+      } else if (event.error !== "aborted") {
+        setErrorMsg("Speech recognition error: " + event.error)
+      }
+      stopSpeechRecording()
+    }
+
+    recognition.onend = () => {
+      // If still in recording state, it may have stopped unexpectedly (Android bug)
+      if (isRecordingRef.current) {
+        // Auto-submit what we have
+        stopSpeechRecording()
+      }
+    }
+
+    try {
+      recognition.start()
+      recognitionRef.current = recognition
+      isRecordingRef.current = true
+      setUiState("RECORDING")
+      startTimer()
+    } catch (err: any) {
+      setErrorMsg("Could not start microphone: " + err.message)
+    }
+  }
+
+  const stopSpeechRecording = useCallback(() => {
+    isRecordingRef.current = false
+    stopTimer()
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      recognitionRef.current = null
+    }
+    setInterimText("")
+  }, [])
+
+  // ── MEDIA RECORDER PATH (Android fallback) ──
+  const startMediaRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+
+      const mimeType = getSupportedMimeType()
+      const options = mimeType ? { mimeType } : {}
+      const mediaRecorder = new MediaRecorder(stream, options)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      mediaRecorder.onstop = async () => {
+        stopTimer()
+        const mimeUsed = mimeType || "audio/webm"
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeUsed })
+        // Release stream
+        stream.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+        await transcribeBlob(audioBlob, mimeUsed)
+      }
+
+      mediaRecorder.start(1000) // collect chunks every 1s
+      isRecordingRef.current = true
+      setUiState("RECORDING")
+      startTimer()
+    } catch (err: any) {
+      if (err.name === "NotAllowedError") {
+        setErrorMsg("Microphone permission denied. Please allow microphone access and try again.")
+      } else {
+        setErrorMsg("Could not start microphone: " + err.message)
+      }
+    }
+  }
+
+  const stopMediaRecording = () => {
+    isRecordingRef.current = false
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop()
+      setUiState("TRANSCRIBING")
+    }
+  }
+
+  const transcribeBlob = async (blob: Blob, mimeType: string) => {
+    setUiState("TRANSCRIBING")
+    try {
+      const formData = new FormData()
+      formData.append("audio", blob, `recording.${mimeType.split("/")[1]?.split(";")[0] || "webm"}`)
+      formData.append("mimeType", mimeType)
+
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Transcription failed")
+
+      setRawText(data.transcription)
+      await enhanceNote(data.transcription)
+    } catch (err: any) {
+      console.error("Transcription error:", err)
+      setErrorMsg(err.message || "Failed to transcribe audio")
+      setUiState("ERROR")
+    }
+  }
+
+  // ── UNIFIED CONTROLS ──
   const startRecording = () => {
     setRawText("")
     setInterimText("")
     setErrorMsg("")
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start()
-        setUiState("RECORDING")
-      } catch (err) {
-        console.error(err)
-        setErrorMsg("Could not start microphone.")
-      }
+    setEnhancedText("")
+
+    if (recordingMethod === "speech_api") {
+      startSpeechRecording()
+    } else if (recordingMethod === "media_recorder") {
+      startMediaRecording()
     }
   }
 
-  const stopRecording = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-    }
-    setInterimText("")
-    if (rawText.trim() || interimText.trim()) {
-      enhanceNote(rawText + interimText)
+  const stopRecording = useCallback(() => {
+    if (recordingMethod === "speech_api") {
+      stopSpeechRecording()
+      setUiState("ENHANCING")
+      // Small delay to allow final results to come in
+      setTimeout(() => {
+        setRawText(prev => {
+          const finalText = prev + interimText
+          if (finalText.trim()) {
+            enhanceNote(finalText)
+          } else {
+            setUiState("READY")
+          }
+          return prev
+        })
+        setInterimText("")
+      }, 300)
     } else {
-      setUiState("READY")
+      stopMediaRecording()
     }
-  }
+  }, [recordingMethod, stopSpeechRecording, interimText])
 
   const enhanceNote = async (textToEnhance: string) => {
     setUiState("ENHANCING")
@@ -102,19 +263,19 @@ export default function VoiceNotePage() {
       const res = await fetch("/api/enhance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textToEnhance })
+        body: JSON.stringify({ text: textToEnhance }),
       })
-      
+
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Enhancement failed")
-      
+
       setEnhancedText(data.enhancedText)
       setUiState("REVIEW")
     } catch (err: any) {
-      console.error(err)
-      setErrorMsg(err.message || "Failed to connect to AI")
-      // Still go to review mode so they don't lose raw text
+      console.error("Enhancement error:", err)
+      // Don't lose the text — still allow saving raw
       setEnhancedText(textToEnhance)
+      setErrorMsg("AI enhancement failed. You can still edit and save the raw text.")
       setUiState("REVIEW")
     }
   }
@@ -126,162 +287,221 @@ export default function VoiceNotePage() {
     setIsSaving(true)
     try {
       await saveNote({
-        title,
-        rawContent: rawText,
-        enhancedContent: enhancedText,
-        finalContent: enhancedText, // What the user edited in the textarea
-        inputMethod: "VOICE"
+        title: title.trim(),
+        rawContent: rawText || undefined,
+        enhancedContent: rawText !== enhancedText ? enhancedText : undefined,
+        finalContent: enhancedText,
+        inputMethod: "VOICE",
       })
-      router.push("/")
-    } catch (error) {
-      console.error(error)
-      setErrorMsg("Failed to save note.")
+      router.push("/notes")
+    } catch (err: any) {
+      console.error(err)
+      setErrorMsg("Failed to save note: " + err.message)
     } finally {
       setIsSaving(false)
     }
   }
 
+  const reset = () => {
+    setUiState("READY")
+    setRawText("")
+    setInterimText("")
+    setEnhancedText("")
+    setTitle("")
+    setErrorMsg("")
+    setRecordingSeconds(0)
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopTimer()
+      if (recognitionRef.current) { try { recognitionRef.current.stop() } catch {} }
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    }
+  }, [])
+
   return (
-    <div className="container max-w-screen-lg mx-auto px-4 py-8">
-      
+    <div className="max-w-2xl mx-auto px-4 py-6 w-full">
+
+      {/* Error Banner */}
       {errorMsg && (
-        <div className="bg-destructive/15 text-destructive border border-destructive/30 p-4 rounded-md mb-6">
-          {errorMsg}
+        <div className="flex items-start gap-3 bg-red-950/40 border border-red-800/50 text-red-300 p-4 rounded-xl mb-6 text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg("")} className="ml-auto text-red-400 hover:text-red-200 shrink-0">✕</button>
         </div>
       )}
 
-      {/* State: Ready / Recording */}
+      {/* READY / RECORDING */}
       {(uiState === "READY" || uiState === "RECORDING") && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold tracking-tight">Capture your thoughts</h1>
-            <p className="text-xl text-muted-foreground">Speak naturally. We'll structure it later.</p>
+        <div className="flex flex-col items-center gap-8 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+              {uiState === "RECORDING" ? "Recording..." : "Voice Note"}
+            </h1>
+            <p className="text-white/40 text-sm mt-2">
+              {uiState === "RECORDING"
+                ? `${formatTime(recordingSeconds)} — tap stop when done`
+                : "Tap the mic and speak naturally"}
+            </p>
           </div>
-          
+
+          {/* Big Record Button */}
           <div className="relative flex items-center justify-center">
             {uiState === "RECORDING" && (
-              <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
+              <>
+                <div className="absolute h-36 w-36 rounded-full bg-red-500/10 animate-ping" />
+                <div className="absolute h-44 w-44 rounded-full bg-red-500/5 animate-pulse" />
+              </>
             )}
             <button
               onClick={uiState === "RECORDING" ? stopRecording : startRecording}
-              className={`relative z-10 flex h-32 w-32 items-center justify-center rounded-full shadow-2xl transition-all duration-300 ${
-                uiState === "RECORDING" 
-                  ? "bg-destructive hover:bg-destructive/90 scale-110" 
-                  : "bg-primary hover:bg-primary/90 hover:scale-105"
-              }`}
+              disabled={recordingMethod === "unknown"}
+              className={`relative z-10 flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-full transition-all duration-200 shadow-2xl active:scale-95 ${
+                uiState === "RECORDING"
+                  ? "bg-red-500 hover:bg-red-600 shadow-red-500/30"
+                  : "bg-white hover:bg-white/90 shadow-white/20"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
-              {uiState === "RECORDING" ? (
-                <Square className="h-10 w-10 text-destructive-foreground fill-current" />
-              ) : (
-                <Mic className="h-12 w-12 text-primary-foreground" />
-              )}
+              {uiState === "RECORDING"
+                ? <Square className="h-10 w-10 text-white fill-white" />
+                : <Mic className="h-12 w-12 text-black" />}
             </button>
           </div>
 
-          <div className="w-full max-w-2xl h-48 p-6 glass-panel rounded-xl overflow-y-auto">
+          {/* Live transcript */}
+          <div className="w-full min-h-[120px] bg-white/[0.04] border border-white/10 rounded-xl p-4 text-sm leading-relaxed">
             {!rawText && !interimText ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground/50 italic">
-                {uiState === "RECORDING" ? "Listening..." : "Waiting to record..."}
-              </div>
+              <p className="text-white/25 italic text-center mt-6">
+                {uiState === "RECORDING" ? "Listening..." : "Your transcription will appear here"}
+              </p>
             ) : (
-              <p className="text-lg leading-relaxed">
-                <span className="text-foreground">{rawText}</span>
-                <span className="text-muted-foreground">{interimText}</span>
+              <p>
+                <span className="text-white/80">{rawText}</span>
+                <span className="text-white/40">{interimText}</span>
               </p>
             )}
           </div>
+
+          {recordingMethod === "media_recorder" && (
+            <p className="text-xs text-white/25 text-center">Using audio recording mode (Android compatible)</p>
+          )}
         </div>
       )}
 
-      {/* State: Enhancing */}
+      {/* TRANSCRIBING */}
+      {uiState === "TRANSCRIBING" && (
+        <div className="flex flex-col items-center gap-6 py-16">
+          <div className="h-20 w-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 text-white/60 animate-spin" />
+          </div>
+          <div className="text-center">
+            <p className="text-white font-medium">Transcribing audio...</p>
+            <p className="text-white/40 text-sm mt-1">Converting your voice to text</p>
+          </div>
+        </div>
+      )}
+
+      {/* ENHANCING */}
       {uiState === "ENHANCING" && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 rounded-full animate-pulse blur-xl" />
-            <div className="h-24 w-24 rounded-full glass-panel flex items-center justify-center relative z-10 shadow-2xl">
-              <Sparkles className="h-10 w-10 text-primary animate-pulse" />
-            </div>
+        <div className="flex flex-col items-center gap-6 py-16">
+          <div className="h-20 w-20 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+            <Sparkles className="h-8 w-8 text-purple-400 animate-pulse" />
           </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-gradient">Enhancing your note...</h2>
-            <p className="text-muted-foreground">Structuring thoughts and fixing grammar</p>
+          <div className="text-center">
+            <p className="text-white font-medium">Enhancing with AI...</p>
+            <p className="text-white/40 text-sm mt-1">Fixing grammar and structuring your note</p>
           </div>
         </div>
       )}
 
-      {/* State: Review */}
+      {/* ERROR */}
+      {uiState === "ERROR" && (
+        <div className="flex flex-col items-center gap-6 py-16 text-center">
+          <AlertTriangle className="h-12 w-12 text-red-400" />
+          <div>
+            <p className="text-white font-medium">Something went wrong</p>
+            <p className="text-white/40 text-sm mt-1">{errorMsg}</p>
+          </div>
+          <button
+            onClick={reset}
+            className="px-6 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* REVIEW */}
       {uiState === "REVIEW" && (
-        <form onSubmit={handleSave} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8 border-b border-border/40 pb-6">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Wand2 className="h-8 w-8 text-primary" />
-                Review & Save
-              </h1>
-              <p className="text-muted-foreground mt-2">Edit your AI enhanced note before saving.</p>
+        <form onSubmit={handleSave} className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-purple-400" />
+              <h1 className="text-lg font-semibold text-white">Review & Save</h1>
             </div>
-            <div className="flex gap-3">
-              <Button type="button" variant="ghost" onClick={() => setUiState("READY")}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Discard
-              </Button>
-              <Button type="submit" disabled={isSaving || !enhancedText.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Note"}
-              </Button>
-            </div>
+            <button
+              type="button"
+              onClick={reset}
+              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Start over
+            </button>
           </div>
 
-          <div className="space-y-2">
-            <Input
-              placeholder="Give your note a title (Optional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="glass-input text-xl font-semibold border-0 border-b rounded-none focus-visible:ring-0 px-0 h-14"
+          {/* Title */}
+          <Input
+            placeholder="Note title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus-visible:ring-white/20 h-11"
+          />
+
+          {/* Raw transcription (if from voice, show as reference) */}
+          {rawText && rawText !== enhancedText && (
+            <div className="bg-white/[0.03] border border-white/8 rounded-xl p-4">
+              <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Mic className="h-3 w-3" /> Original transcript
+              </p>
+              <p className="text-white/40 text-sm leading-relaxed">{rawText}</p>
+            </div>
+          )}
+
+          {/* Enhanced note — editable */}
+          <div className="bg-white/[0.04] border border-purple-500/20 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/8 bg-purple-500/5">
+              <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+              <p className="text-xs text-purple-300 font-medium">AI Enhanced — edit freely</p>
+            </div>
+            <Textarea
+              value={enhancedText}
+              onChange={(e) => setEnhancedText(e.target.value)}
+              className="min-h-[260px] sm:min-h-[320px] resize-none border-0 bg-transparent focus-visible:ring-0 text-white/90 p-4 text-sm leading-relaxed rounded-none"
+              required
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
-            <Card className="glass-panel border-0 shadow-lg flex flex-col">
-              <CardHeader className="bg-secondary/30 pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Mic className="h-4 w-4 text-muted-foreground" />
-                  Raw Transcription
-                </CardTitle>
-                <CardDescription>Exactly what we heard.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 p-0">
-                <Textarea
-                  value={rawText}
-                  readOnly
-                  className="w-full h-full min-h-[400px] resize-none border-0 bg-transparent focus-visible:ring-0 text-muted-foreground p-6 rounded-none"
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="glass-panel border-primary/20 shadow-2xl shadow-primary/5 flex flex-col relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5">
-                <Sparkles className="h-32 w-32" />
-              </div>
-              <CardHeader className="bg-primary/5 pb-4 relative z-10 border-b border-primary/10">
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Wand2 className="h-4 w-4" />
-                  Enhanced Note
-                </CardTitle>
-                <CardDescription>Feel free to make any final edits.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 p-0 relative z-10">
-                <Textarea
-                  value={enhancedText}
-                  onChange={(e) => setEnhancedText(e.target.value)}
-                  className="w-full h-full min-h-[400px] resize-y border-0 bg-transparent focus-visible:ring-0 text-foreground p-6 rounded-none text-base leading-relaxed"
-                  required
-                />
-              </CardContent>
-            </Card>
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={reset}
+              className="flex-1 h-11 border border-white/15 text-white/60 text-sm font-medium rounded-xl hover:bg-white/5 transition-all"
+            >
+              Discard
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !enhancedText.trim()}
+              className="flex-1 h-11 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isSaving ? "Saving..." : "Save Note"}
+            </button>
           </div>
         </form>
       )}
-
     </div>
   )
 }

@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+import { redirect, notFound } from "next/navigation"
 import { format } from "date-fns"
-import { Calendar, Clock, Mic, PenLine, ArrowLeft, Trash } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Calendar, Clock, Mic, PenLine, ArrowLeft, Trash, Edit2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { deleteNote, getNote } from "@/actions/notes"
@@ -16,16 +15,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params
   const note = await getNote(id)
 
-  if (!note) {
-    return (
-      <div className="container max-w-screen-md mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Note not found</h1>
-        <Link href="/">
-          <Button variant="secondary">Return Home</Button>
-        </Link>
-      </div>
-    )
-  }
+  if (!note) notFound()
 
   async function handleDelete() {
     "use server"
@@ -34,66 +24,89 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="container max-w-screen-md mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6 w-full">
       
-      <div className="flex justify-between items-center">
+      {/* Header Actions */}
+      <div className="flex justify-between items-center mb-4">
         <Link href="/notes">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Notes
-          </Button>
+          <button className="flex items-center gap-1.5 text-xs font-medium text-white/40 hover:text-white transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
         </Link>
-        <form action={handleDelete}>
-          <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-            <Trash className="h-4 w-4" />
-          </Button>
-        </form>
+        <div className="flex gap-2">
+          <Link href={`/notes/${note.id}/edit`}>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-colors text-xs font-medium">
+              <Edit2 className="h-3.5 w-3.5" />
+              Edit
+            </button>
+          </Link>
+          <form action={handleDelete}>
+            <button type="submit" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-colors text-xs font-medium border border-red-500/20">
+              <Trash className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          </form>
+        </div>
       </div>
 
-      <Card className="glass-panel border-0 shadow-2xl">
-        <CardHeader className="border-b border-border/40 pb-6 mb-6">
+      {/* Note Content */}
+      <div className="bg-white/[0.04] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        
+        {/* Note Header */}
+        <div className="p-6 border-b border-white/8 bg-white/[0.02]">
           <div className="flex justify-between items-start gap-4">
             <div>
-              <CardTitle className="text-2xl mb-2">{note.title || "Untitled Note"}</CardTitle>
-              <div className="flex items-center text-sm text-muted-foreground gap-4">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
+              <h1 className="text-2xl font-bold text-white tracking-tight mb-2">
+                {note.title || "Untitled Note"}
+              </h1>
+              <div className="flex items-center text-xs text-white/40 gap-4">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
                   {format(new Date(note.createdAt), "MMMM d, yyyy")}
                 </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
                   {format(new Date(note.createdAt), "h:mm a")}
                 </span>
+                {note.updatedAt && note.updatedAt !== note.createdAt && (
+                  <span className="flex items-center gap-1.5 text-white/25 italic">
+                    (Edited)
+                  </span>
+                )}
               </div>
             </div>
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
               {note.inputMethod === "VOICE" ? (
-                <Mic className="h-5 w-5 text-primary" />
+                <Mic className="h-5 w-5 text-white/60" />
               ) : (
-                <PenLine className="h-5 w-5 text-primary" />
+                <PenLine className="h-5 w-5 text-white/60" />
               )}
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          
+        </div>
+
+        {/* Final Text */}
+        <div className="p-6">
           <div className="prose prose-invert max-w-none">
-            <p className="whitespace-pre-wrap leading-relaxed text-lg">
+            <p className="whitespace-pre-wrap leading-relaxed text-base text-white/90">
               {note.finalContent}
             </p>
           </div>
+        </div>
 
-          {note.rawContent && note.enhancedContent && (
-            <div className="pt-8 border-t border-border/40">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Original Voice Transcription</h3>
-              <div className="bg-card/40 p-4 rounded-md border border-white/5 text-muted-foreground text-sm whitespace-pre-wrap">
-                {note.rawContent}
-              </div>
+        {/* Original Transcript (if exists) */}
+        {note.rawContent && note.inputMethod === "VOICE" && (
+          <div className="p-6 border-t border-white/8 bg-black/20">
+            <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Mic className="h-3.5 w-3.5" /> Original Transcript
+            </h3>
+            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl text-white/40 text-sm whitespace-pre-wrap leading-relaxed">
+              {note.rawContent}
             </div>
-          )}
-
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
       
     </div>
   )

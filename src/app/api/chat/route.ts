@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { createClient } from "@/lib/supabase/server"
+import { getNotes } from "@/actions/notes"
+
+// Vercel edge runtime timeout is sometimes 10s on hobby plan, 
+// but we'll try to keep it fast by sending limited context.
+export const maxDuration = 30 // Allow up to 30s for the function to execute if supported
 
 export async function POST(req: Request) {
   try {
@@ -8,72 +13,75 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user?.id) {
-      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
-      return NextResponse.json({
-        error: "Gemini API key is not configured. Please add your GEMINI_API_KEY to the .env file and restart the server."
-      }, { status: 500 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { message, history } = await req.json()
+
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    // Fetch the last 100 notes as context (or maybe all notes if within token limits)
-    const { data: notes, error: dbError } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('userId', user.id)
-      .order('createdAt', { ascending: false })
-      .limit(200)
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey || apiKey.startsWith("YOUR_") || apiKey.startsWith("AQ.")) {
+      return NextResponse.json({
+        error: "AI is not configured. Please check your Gemini API key."
+      }, { status: 500 })
+    }
 
-    if (dbError) throw dbError
+    // Get all user's notes for context
+    // In a real app with many notes, you'd use RAG (vector embeddings) here.
+    // For this prototype, we'll fetch up to 20 most recent notes to avoid token limits.
+    const allNotes = await getNotes()
+    const recentNotes = allNotes.slice(0, 20)
 
-    const notesContext = (notes || []).map(n => `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
+    const contextNotes = recentNotes.map(n => 
+      `Date: ${new Date(n.createdAt).toLocaleDateString()}\nTitle: ${n.title || 'Untitled'}\nContent: ${n.finalContent}`
+    ).join("\n\n---\n\n")
+
+    const systemPrompt = `You are ReflectAI, an intelligent assistant designed to help the user understand their past thoughts, accomplishments, and plans based ONLY on their personal notes.
+    
+Here are the user's recent notes:
+${contextNotes || "No notes available yet."}
+
+Instructions:
+1. Answer the user's question based ONLY on the notes provided above.
+2. If the user asks about something not in the notes, say "I don't see any information about that in your recent notes."
+3. Never invent or hallucinate activities, accomplishments, or intentions. 
+4. Distinguish between things the user *planned* to do (intentions) and things they *actually* did (accomplishments).
+5. Be concise, supportive, and direct.`
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: systemPrompt
+    })
 
-    const systemInstruction = `
-You are ReflectAI Assistant, an AI that helps the user answer questions about their past activity based ONLY on their notes.
-Here is the user's entire recent note history:
----
-${notesContext}
----
-Rules:
-1. Answer the user's question accurately using ONLY the information provided in the notes above.
-2. If the answer cannot be found in the notes, say "I couldn't find information about that in your notes."
-3. Do NOT hallucinate or invent facts.
-4. Keep the response concise, helpful, and conversational.
-`
-
-    // Convert history format to Gemini format
-    const formattedHistory = history.map((msg: any) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }]
+    // Format history for Gemini
+    const formattedHistory = (history || []).map((msg: any) => ({
+      role: msg.role === "model" ? "model" : "user",
+      parts: [{ text: msg.content }],
     }))
 
     const chat = model.startChat({
-      history: [
-        { role: "user", parts: [{ text: "SYSTEM INSTRUCTION: " + systemInstruction }] },
-        { role: "model", parts: [{ text: "Understood. I will answer based ONLY on the provided notes." }] },
-        ...formattedHistory
-      ],
+      history: formattedHistory,
+      generationConfig: {
+        maxOutputTokens: 500,
+      }
     })
 
     const result = await chat.sendMessage(message)
     const responseText = result.response.text()
 
     return NextResponse.json({ response: responseText })
+    
   } catch (error: any) {
-    console.error("AI Chat Error:", error)
-    const message = process.env.NODE_ENV === "development"
-      ? `Chat failed: ${error?.message || String(error)}`
-      : "Failed to process chat. Please check your Gemini API key."
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error("Chat Error:", error)
+    // Avoid returning internal stack traces to the client
+    const errorMessage = process.env.NODE_ENV === "development" 
+      ? error.message 
+      : "Failed to communicate with AI model. Please try again later."
+      
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
