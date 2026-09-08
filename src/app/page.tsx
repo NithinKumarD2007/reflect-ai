@@ -3,9 +3,7 @@ import { redirect } from "next/navigation"
 import { getNotes } from "@/actions/notes"
 import Link from "next/link"
 import { format } from "date-fns"
-import { Mic, PenLine, Sparkles, Calendar, Clock, FileText, BrainCircuit } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Mic, PenLine, Sparkles, Calendar, Clock, FileText, BrainCircuit, ChevronRight } from "lucide-react"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -16,124 +14,142 @@ export default async function DashboardPage() {
   }
 
   const notes = await getNotes()
+  const voiceNotes = notes.filter(n => n.inputMethod === "VOICE").length
+  const typedNotes = notes.filter(n => n.inputMethod === "TYPED").length
+  const username = user.email?.split("@")[0] ?? "there"
 
   return (
-    <div className="container max-w-screen-xl mx-auto px-4 py-8 space-y-8">
-      
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 w-full">
+
+      {/* Welcome Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ""}</h1>
-          <p className="text-muted-foreground mt-1">Capture your thoughts, we'll do the rest.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            Good to see you, <span className="text-white/60">{username}</span>
+          </h1>
+          <p className="text-white/40 text-sm mt-1">Capture your thoughts. AI does the rest.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <Link href="/notes/voice">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105">
-              <Mic className="mr-2 h-4 w-4" />
-              Record Voice
-            </Button>
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all">
+              <Mic className="h-4 w-4" />
+              <span className="hidden sm:inline">Record Voice</span>
+              <span className="sm:hidden">Record</span>
+            </button>
           </Link>
           <Link href="/notes/new">
-            <Button variant="secondary" className="shadow-lg hover:scale-105 transition-all">
-              <PenLine className="mr-2 h-4 w-4" />
-              New Note
-            </Button>
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-white/8 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/15 transition-all">
+              <PenLine className="h-4 w-4" />
+              <span className="hidden sm:inline">New Note</span>
+              <span className="sm:hidden">Write</span>
+            </button>
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        {[
+          { label: "Total Notes", value: notes.length, icon: FileText },
+          { label: "Voice Notes", value: voiceNotes, icon: Mic },
+          { label: "Written", value: typedNotes, icon: PenLine },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="bg-white/[0.04] border border-white/10 rounded-xl p-4 flex flex-col gap-2">
+            <Icon className="h-4 w-4 text-white/30" />
+            <div className="text-2xl font-bold text-white">{value}</div>
+            <div className="text-xs text-white/40">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Recent Notes */}
+        <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
+            <h2 className="text-base font-semibold text-white flex items-center gap-2">
+              <FileText className="h-4 w-4 text-white/40" />
               Recent Notes
             </h2>
-            <Link href="/notes" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              View all
+            <Link href="/notes" className="text-xs text-white/40 hover:text-white flex items-center gap-1 transition-colors">
+              View all <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
-          
+
           {notes.length === 0 ? (
-            <Card className="glass-panel border-dashed border-2 bg-transparent text-center p-12">
-              <CardContent className="pt-6 flex flex-col items-center">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                </div>
-                <p className="text-lg font-medium text-foreground">Your thoughts start here.</p>
-                <p className="text-muted-foreground mt-1 mb-6">Record a quick voice note or write something down.</p>
-                <Link href="/notes/voice">
-                  <Button>Get Started</Button>
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="bg-white/[0.03] border border-dashed border-white/15 rounded-2xl p-10 text-center">
+              <Sparkles className="h-8 w-8 text-white/20 mx-auto mb-3" />
+              <p className="text-white/50 text-sm font-medium">No notes yet</p>
+              <p className="text-white/25 text-xs mt-1">Record a voice note or write something to get started.</p>
+              <Link href="/notes/voice">
+                <button className="mt-4 text-xs px-4 py-2 bg-white text-black rounded-lg font-semibold hover:bg-white/90 transition-all">
+                  Get Started
+                </button>
+              </Link>
+            </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="space-y-2">
               {notes.slice(0, 5).map((note) => (
-                <Card key={note.id} className="glass-panel hover:bg-card/60 transition-colors group">
-                  <CardContent className="p-5">
-                    <Link href={`/notes/${note.id}`} className="block">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
-                          {note.title || "Untitled"}
-                        </h3>
-                        {note.inputMethod === "VOICE" ? (
-                          <Mic className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <PenLine className="h-4 w-4 text-muted-foreground" />
-                        )}
+                <Link key={note.id} href={`/notes/${note.id}`} className="block group">
+                  <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 hover:bg-white/[0.08] hover:border-white/20 transition-all">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 h-7 w-7 rounded-lg bg-white/8 border border-white/10 flex items-center justify-center shrink-0">
+                        {note.inputMethod === "VOICE"
+                          ? <Mic className="h-3.5 w-3.5 text-white/50" />
+                          : <PenLine className="h-3.5 w-3.5 text-white/50" />}
                       </div>
-                      <p className="text-muted-foreground line-clamp-2 text-sm mb-4">
-                        {note.finalContent}
-                      </p>
-                      <div className="flex items-center text-xs text-muted-foreground gap-4">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(note.createdAt), "MMM d, yyyy")}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(note.createdAt), "h:mm a")}
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-white truncate group-hover:text-white/90">
+                          {note.title || "Untitled Note"}
+                        </p>
+                        <p className="text-xs text-white/35 line-clamp-1 mt-0.5">{note.finalContent}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-white/25">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(note.createdAt), "MMM d")}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {format(new Date(note.createdAt), "h:mm a")}
+                          </span>
+                        </div>
                       </div>
-                    </Link>
-                  </CardContent>
-                </Card>
+                      <ChevronRight className="h-4 w-4 text-white/20 group-hover:text-white/40 shrink-0 mt-1 transition-colors" />
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           )}
         </div>
 
-        <div className="space-y-6">
-          <Card className="glass-panel relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <BrainCircuit className="h-24 w-24" />
-            </div>
-            <CardHeader>
-              <CardTitle className="text-lg">AI Analysis</CardTitle>
-              <CardDescription>Reflect on your past activity.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 relative z-10">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Notes this month</span>
-                  <span className="font-medium text-foreground">{notes.length}</span>
+        {/* Sidebar: Quick Actions */}
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold text-white">Quick Actions</h2>
+          <div className="space-y-2">
+            {[
+              { href: "/analysis", icon: Sparkles, label: "AI Monthly Reflect", desc: "Analyze your activity" },
+              { href: "/chat", icon: BrainCircuit, label: "Ask Your Notes", desc: "Chat with your history" },
+              { href: "/notes", icon: FileText, label: "Browse All Notes", desc: `${notes.length} notes total` },
+            ].map(({ href, icon: Icon, label, desc }) => (
+              <Link key={href} href={href} className="block group">
+                <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 hover:bg-white/[0.08] hover:border-white/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-white/8 border border-white/10 flex items-center justify-center shrink-0">
+                      <Icon className="h-4 w-4 text-white/50" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white/80 group-hover:text-white">{label}</p>
+                      <p className="text-xs text-white/30">{desc}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-white/20 group-hover:text-white/40 shrink-0 transition-colors" />
+                  </div>
                 </div>
-                {/* Progress bar visual for gaming aesthetic */}
-                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${Math.min(notes.length * 5, 100)}%` }} />
-                </div>
-              </div>
-              <Link href="/analysis" className="block mt-4">
-                <Button variant="outline" className="w-full justify-between group">
-                  View Monthly Insight
-                  <Sparkles className="h-4 w-4 group-hover:text-primary transition-colors" />
-                </Button>
               </Link>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         </div>
       </div>
-      
     </div>
   )
 }

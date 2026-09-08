@@ -1,12 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { BrainCircuit, Loader2 } from "lucide-react"
+import { useState, Suspense } from "react"
+import Image from "next/image"
+import { Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { login, signup } from "./actions"
 import { useSearchParams } from "next/navigation"
-import { Suspense } from "react"
 
 function LoginForm() {
   const [tab, setTab] = useState<"signin" | "signup">("signin")
@@ -14,32 +13,31 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get("error")
 
-  const handleSubmit = () => setLoading(true)
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
-
-        {/* Header */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="h-12 w-12 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center mb-4 ring-1 ring-indigo-500/30">
-            <BrainCircuit className="h-6 w-6" />
-          </div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Welcome to ReflectAI</h1>
-          <p className="text-zinc-400 text-sm mt-2 text-center">
-            Your AI-powered voice notes and personal activity analyzer.
-          </p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black p-4">
+      {/* Logo */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="h-14 w-14 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(255,255,255,0.15)]">
+          <Image src="/logo.png" alt="ReflectAI" width={48} height={48} className="object-contain" />
         </div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">ReflectAI</h1>
+        <p className="text-white/40 text-sm mt-1 text-center max-w-xs">
+          AI-powered voice notes and personal activity analysis
+        </p>
+      </div>
+
+      {/* Card */}
+      <div className="w-full max-w-sm bg-white/[0.04] border border-white/10 rounded-2xl p-6 shadow-2xl">
 
         {/* Tabs */}
-        <div className="flex bg-zinc-800/60 rounded-xl p-1 mb-6">
+        <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 mb-6">
           <button
             type="button"
             onClick={() => setTab("signin")}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === "signin"
-                ? "bg-indigo-600 text-white shadow"
-                : "text-zinc-400 hover:text-zinc-200"
+                ? "bg-white text-black shadow"
+                : "text-white/50 hover:text-white/80"
             }`}
           >
             Sign In
@@ -49,8 +47,8 @@ function LoginForm() {
             onClick={() => setTab("signup")}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === "signup"
-                ? "bg-indigo-600 text-white shadow"
-                : "text-zinc-400 hover:text-zinc-200"
+                ? "bg-white text-black shadow"
+                : "text-white/50 hover:text-white/80"
             }`}
           >
             Create Account
@@ -59,90 +57,88 @@ function LoginForm() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-6 text-sm text-center">
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-5 text-sm text-center">
             {decodeURIComponent(error)}
           </div>
         )}
 
-        {/* Sign In Form */}
+        {/* Sign In */}
         {tab === "signin" && (
-          <form action={login} onSubmit={handleSubmit} className="space-y-4">
+          <form action={login} onSubmit={() => setLoading(true)} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Email Address</label>
+              <label className="text-xs font-medium text-white/50 mb-1.5 block">Email</label>
               <Input
-                name="email"
-                type="email"
+                name="email" type="email"
                 placeholder="you@example.com"
-                className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-white/30 h-11"
                 required
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Password</label>
+              <label className="text-xs font-medium text-white/50 mb-1.5 block">Password</label>
               <Input
-                name="password"
-                type="password"
+                name="password" type="password"
                 placeholder="••••••••"
-                className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-white/30 h-11"
                 required
               />
             </div>
-            <Button
+            <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11 text-sm mt-2"
+              className="w-full h-11 mt-2 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Sign In
-            </Button>
+            </button>
           </form>
         )}
 
-        {/* Sign Up Form */}
+        {/* Create Account */}
         {tab === "signup" && (
-          <form action={signup} onSubmit={handleSubmit} className="space-y-4">
+          <form action={signup} onSubmit={() => setLoading(true)} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Email Address</label>
+              <label className="text-xs font-medium text-white/50 mb-1.5 block">Email</label>
               <Input
-                name="email"
-                type="email"
+                name="email" type="email"
                 placeholder="you@example.com"
-                className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-white/30 h-11"
                 required
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-zinc-400 mb-1.5 block">Password</label>
+              <label className="text-xs font-medium text-white/50 mb-1.5 block">Password</label>
               <Input
-                name="password"
-                type="password"
+                name="password" type="password"
                 placeholder="Min. 6 characters"
-                className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-white/30 h-11"
                 minLength={6}
                 required
               />
             </div>
-            <Button
+            <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11 text-sm mt-2"
+              className="w-full h-11 mt-2 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Account
-            </Button>
-            <p className="text-xs text-zinc-500 text-center">
-              Supabase may send a confirmation email. Check your inbox if login doesn't work immediately.
+            </button>
+            <p className="text-xs text-white/25 text-center pt-1">
+              A confirmation email may be sent. Check your inbox.
             </p>
           </form>
         )}
       </div>
+
+      <p className="text-white/20 text-xs mt-6">© 2026 ReflectAI. All rights reserved.</p>
     </div>
   )
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
       <LoginForm />
     </Suspense>
   )

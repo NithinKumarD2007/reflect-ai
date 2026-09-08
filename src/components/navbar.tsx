@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { Mic, PenLine, LayoutDashboard, BrainCircuit, Sparkles, LogOut, User, Menu, X } from "lucide-react"
+import Image from "next/image"
+import { Mic, PenLine, LayoutDashboard, Sparkles, BrainCircuit, LogOut, User, Menu, X } from "lucide-react"
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 
 const navLinks = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -19,7 +19,11 @@ export function Navbar() {
   const [user, setUser] = useState<{ email?: string } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
+
+  // Close menu on navigation
+  useEffect(() => { setMenuOpen(false) }, [pathname])
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -28,15 +32,10 @@ export function Navbar() {
     }
     fetchUser()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null)
-      }
-    )
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => { authListener.subscription.unsubscribe() }
   }, [supabase.auth])
 
   const handleSignOut = async () => {
@@ -44,69 +43,69 @@ export function Navbar() {
     router.push('/login')
   }
 
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href)
+
   return (
-    <nav className="fixed top-0 w-full z-50 glass-panel border-b border-border/40">
-      <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4">
-        
-        {/* Logo */}
-        <Link href="/" className="flex items-center space-x-2 shrink-0">
-          <BrainCircuit className="h-6 w-6 text-primary" />
-          <span className="font-bold text-gradient hidden sm:inline-block">ReflectAI</span>
-        </Link>
+    <header className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-white/10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex h-14 items-center justify-between gap-4">
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {navLinks.map(({ href, label, icon: Icon, highlight }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                highlight
-                  ? "text-primary hover:text-primary/80 hover:bg-primary/10"
-                  : "text-foreground/70 hover:text-foreground hover:bg-white/5"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Right side */}
-        <div className="flex items-center gap-2">
-          {user ? (
-            <div className="hidden md:flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10">
-                <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
-                  <User className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <span className="text-sm text-muted-foreground max-w-[120px] truncate">
-                  {user.email}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
+            <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
+              <Image src="/logo.png" alt="ReflectAI" width={28} height={28} className="object-contain" />
             </div>
-          ) : (
-            <Link href="/login" className="hidden md:block">
-              <Button size="sm" variant="outline">Sign In</Button>
-            </Link>
-          )}
+            <span className="font-bold text-white tracking-tight text-sm hidden sm:block">ReflectAI</span>
+          </Link>
 
-          {/* Mobile: quick actions */}
-          <div className="flex md:hidden items-center gap-2">
-            <Link href="/notes/voice" className="text-primary hover:text-primary/80">
-              <Mic className="h-5 w-5" />
-            </Link>
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-1 flex-1 justify-center">
+            {navLinks.map(({ href, label, icon: Icon, highlight }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive(href)
+                    ? "bg-white text-black"
+                    : highlight
+                    ? "text-white border border-white/20 hover:bg-white/10"
+                    : "text-white/60 hover:text-white hover:bg-white/8"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right: user info + sign out / mobile menu */}
+          <div className="flex items-center gap-2 shrink-0">
+            {user ? (
+              <div className="hidden md:flex items-center gap-2">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                  <User className="h-3.5 w-3.5 text-white/50" />
+                  <span className="text-xs text-white/50 max-w-[140px] truncate">{user.email}</span>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <Link href="/login" className="hidden md:block text-xs px-3 py-1.5 rounded-lg border border-white/20 text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                Sign In
+              </Link>
+            )}
+
+            {/* Mobile hamburger */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="text-foreground/70 hover:text-foreground p-1"
+              className="md:hidden p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Toggle menu"
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -114,35 +113,53 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden glass-panel border-t border-border/40 px-4 py-4 space-y-1">
-          {navLinks.map(({ href, label, icon: Icon, highlight }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setMenuOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors w-full ${
-                highlight
-                  ? "text-primary hover:bg-primary/10"
-                  : "text-foreground/70 hover:text-foreground hover:bg-white/5"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
-          {user && (
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-destructive/80 hover:text-destructive hover:bg-destructive/10 w-full transition-colors mt-2 border-t border-border/40 pt-4"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </button>
-          )}
+        <div className="md:hidden border-t border-white/10 bg-black/95 backdrop-blur-md">
+          <nav className="max-w-6xl mx-auto px-4 py-3 space-y-1">
+            {navLinks.map(({ href, label, icon: Icon, highlight }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  isActive(href)
+                    ? "bg-white text-black"
+                    : "text-white/70 hover:text-white hover:bg-white/8"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+
+            {/* Mobile user info / sign out */}
+            <div className="pt-2 border-t border-white/10 mt-2">
+              {user ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/40">
+                    <User className="h-3.5 w-3.5" />
+                    <span className="truncate">{user.email}</span>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400/80 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/70 hover:text-white hover:bg-white/8"
+                >
+                  Sign In
+                </Link>
+              )}
+            </div>
+          </nav>
         </div>
       )}
-    </nav>
+    </header>
   )
 }
