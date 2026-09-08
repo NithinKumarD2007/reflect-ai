@@ -25,8 +25,7 @@ export async function POST(req: Request) {
 
     // Instantiate inside handler so key is read fresh each request
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-3.7-flash" })
-
+    
     const prompt = `You are an AI assistant that enhances raw voice notes.
 The user dictates notes that may contain filler words, repeated words, broken sentences, or lack structure.
 Your job is to clean up the transcription.
@@ -47,8 +46,26 @@ Raw Transcription:
 
 Enhanced Version:`
 
-    const result = await model.generateContent(prompt)
-    const enhancedText = result.response.text()
+    let enhancedText = ""
+    let lastError: any = null
+    const modelsToTry = ["gemini-1.5-flash", "gemini-3.7-flash"]
+
+    for (const modelName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName })
+        const result = await model.generateContent(prompt)
+        enhancedText = result.response.text()
+        break // Success, break out of loop
+      } catch (error: any) {
+        lastError = error
+        console.warn(`Model ${modelName} failed:`, error.message)
+        // If it's the last model, it will throw below
+      }
+    }
+
+    if (!enhancedText) {
+      throw lastError
+    }
 
     return NextResponse.json({ enhancedText })
   } catch (error: any) {
