@@ -40,14 +40,14 @@ export async function POST(req: Request) {
     })
 
     if (notes.length === 0) {
-      return NextResponse.json({ 
-        error: "Not enough notes yet", 
-        message: "Add more notes during the month and the AI will have more information to analyze." 
+      return NextResponse.json({
+        error: "Not enough notes yet",
+        message: "Add more notes during the month and the AI will have more information to analyze."
       }, { status: 404 })
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     // Prepare context
     const notesContext = notes.map(n => `[${n.createdAt.toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
@@ -79,12 +79,12 @@ ${notesContext}
 
     const result = await model.generateContent(prompt)
     const responseText = result.response.text()
-    
+
     // Clean up potential markdown blocks
     const jsonString = responseText.replace(/```json/g, "").replace(/```/g, "").trim()
     const analysis = JSON.parse(jsonString)
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       analysis,
       stats: {
         total: notes.length,

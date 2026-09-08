@@ -26,13 +26,13 @@ export async function POST(req: Request) {
     const notes = await prisma.note.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
-      take: 200 
+      take: 200
     })
 
     const notesContext = notes.map(n => `[${n.createdAt.toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     const systemInstruction = `
 You are ReflectAI Assistant, an AI that helps the user answer questions about their past activity based ONLY on their notes.

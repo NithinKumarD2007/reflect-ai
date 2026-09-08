@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -17,6 +17,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.2.6",
+    "cross-env": "^10.1.0",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.39.0",
     "next": "16.3.4",
