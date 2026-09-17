@@ -34,26 +34,26 @@
 
 @layer base {
   :root {
-    /* Pure monochromatic black & white palette */
-    --background: 0 0% 4%;        /* near-black #0a0a0a */
-    --foreground: 0 0% 97%;       /* near-white */
-    --card: 0 0% 7%;              /* dark card #121212 */
-    --card-foreground: 0 0% 97%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 97%;
-    --primary: 0 0% 97%;          /* white as primary */
-    --primary-foreground: 0 0% 4%;/* black text on white */
-    --secondary: 0 0% 12%;        /* #1f1f1f */
-    --secondary-foreground: 0 0% 97%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 50%;
-    --accent: 0 0% 16%;           /* #292929 */
-    --accent-foreground: 0 0% 97%;
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 97%;
-    --border: 0 0% 15%;           /* #262626 */
-    --input: 0 0% 10%;
-    --ring: 0 0% 97%;
+    /* Premium Deep Space & Obsidian Palette */
+    --background: 222 47% 6%;     /* very dark blue-slate #080d19 */
+    --foreground: 210 40% 98%;    /* light text #f8fafc */
+    --card: 222 47% 7%;           /* card background #0a101f */
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;       /* electric blue */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 265 89% 68%;     /* neon purple */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 32% 17%;         /* slate-800 */
+    --muted-foreground: 215 20% 65%; /* slate-400 */
+    --accent: 217 32% 17%;        
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+    --ring: 217 91% 60%;
     --radius: 0.75rem;
   }
 }

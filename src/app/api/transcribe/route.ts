@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import Groq from "groq-sdk"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
@@ -11,10 +11,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey || apiKey.startsWith("YOUR_") || apiKey.startsWith("AQ.")) {
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey || apiKey === "your-groq-api-key-here") {
       return NextResponse.json({
-        error: "Gemini API key is not configured correctly. Get a valid key from https://aistudio.google.com/app/apikey"
+        error: "Groq API key is not configured. Please add your GROQ_API_KEY to the .env file and restart the server."
       }, { status: 500 })
     }
 
@@ -26,37 +26,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No audio file provided" }, { status: 400 })
     }
 
-    // Limit to 10MB
-    if (audioFile.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "Audio file too large (max 10MB)" }, { status: 413 })
+    // Limit to 25MB (Groq Whisper limit)
+    if (audioFile.size > 25 * 1024 * 1024) {
+      return NextResponse.json({ error: "Audio file too large (max 25MB)" }, { status: 413 })
     }
 
-    const audioBuffer = await audioFile.arrayBuffer()
-    const base64Audio = Buffer.from(audioBuffer).toString("base64")
+    const groq = new Groq({ apiKey })
 
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    // Groq Whisper API expects a File object
+    const transcription = await groq.audio.transcriptions.create({
+      file: audioFile,
+      model: "whisper-large-v3-turbo",
+      response_format: "json",
+      language: "en",
+    })
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: mimeType.split(";")[0], // strip codecs param
-          data: base64Audio,
-        },
-      },
-      {
-        text: "Transcribe exactly what is spoken in this audio recording. Return only the spoken words, no labels, no timestamps, no explanations. If no speech is detected, return an empty string."
-      },
-    ])
+    const text = transcription.text?.trim() || ""
 
-    const transcription = result.response.text().trim()
-
-    return NextResponse.json({ transcription })
+    return NextResponse.json({ transcription: text })
   } catch (error: any) {
     console.error("Transcription Error:", error)
     const message = process.env.NODE_ENV === "development"
       ? `Transcription failed: ${error?.message || String(error)}`
-      : "Failed to transcribe audio. Please check your Gemini API key."
+      : "Failed to transcribe audio. Please try again later."
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

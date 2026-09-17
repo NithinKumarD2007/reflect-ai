@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import Groq from "groq-sdk"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
@@ -11,10 +11,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey || apiKey === "your-groq-api-key-here") {
       return NextResponse.json({
-        error: "Gemini API key is not configured. Please add your GEMINI_API_KEY to the .env file and restart the server."
+        error: "Groq API key is not configured. Please add your GROQ_API_KEY to the .env file and restart the server."
       }, { status: 500 })
     }
 
@@ -44,21 +44,24 @@ export async function POST(req: Request) {
       }, { status: 404 })
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const groq = new Groq({ apiKey })
 
     // Prepare context
     const notesContext = notes.map(n => `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
 
-    const prompt = `
-You are an AI Personal Activity Analyzer.
+    const completion = await groq.chat.completions.create({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI Personal Activity Analyzer.
 Analyze the following personal notes from a user for a specific month.
 
 Your task is to extract and categorize their activity based STRICTLY on evidence in the notes.
 Do NOT hallucinate or invent events, tasks, or facts.
 If there isn't enough evidence to make a conclusion for a section, return an empty array or state "There isn't enough information in your notes to determine this."
 
-Respond with a raw JSON object (without markdown code blocks) matching this exact schema:
+You MUST respond with a valid JSON object (no markdown, no code blocks) matching this exact schema:
 {
   "accomplishments": ["string"],
   "intentions": ["string"],
@@ -69,18 +72,20 @@ Respond with a raw JSON object (without markdown code blocks) matching this exac
     "improve": ["string"],
     "recommendations": ["string"]
   }
-}
+}`
+        },
+        {
+          role: "user",
+          content: `Here are my notes for analysis:\n\n${notesContext}`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 2048,
+      response_format: { type: "json_object" },
+    })
 
-Here are the notes:
-${notesContext}
-`
-
-    const result = await model.generateContent(prompt)
-    const responseText = result.response.text()
-    
-    // Clean up potential markdown blocks
-    const jsonString = responseText.replace(/```json/g, "").replace(/```/g, "").trim()
-    const analysis = JSON.parse(jsonString)
+    const responseText = completion.choices[0]?.message?.content?.trim() || "{}"
+    const analysis = JSON.parse(responseText)
 
     return NextResponse.json({ 
       analysis,
@@ -94,7 +99,7 @@ ${notesContext}
     console.error("AI Analysis Error:", error)
     const message = process.env.NODE_ENV === "development"
       ? `Analysis failed: ${error?.message || String(error)}`
-      : "Failed to analyze notes. Please check your Gemini API key."
+      : "Failed to analyze notes. Please try again later."
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

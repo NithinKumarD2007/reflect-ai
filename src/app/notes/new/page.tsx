@@ -58,6 +58,7 @@ export default function NewNotePage() {
         finalContent: content,
         inputMethod: "TYPED"
       })
+      router.refresh()
       router.push("/")
     } catch (error) {
       console.error(error)

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import Groq from "groq-sdk"
 import { createClient } from "@/lib/supabase/server"
 import { getNotes } from "@/actions/notes"
 
-// Vercel edge runtime timeout is sometimes 10s on hobby plan, 
-// but we'll try to keep it fast by sending limited context.
-export const maxDuration = 30 // Allow up to 30s for the function to execute if supported
+// Allow up to 30s for the function to execute if supported
+export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
@@ -22,10 +21,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey || apiKey.startsWith("YOUR_") || apiKey.startsWith("AQ.")) {
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey || apiKey === "your-groq-api-key-here") {
       return NextResponse.json({
-        error: "AI is not configured. Please check your Gemini API key."
+        error: "AI is not configured. Please add your GROQ_API_KEY to the .env file."
       }, { status: 500 })
     }
 
@@ -51,27 +50,33 @@ Instructions:
 4. Distinguish between things the user *planned* to do (intentions) and things they *actually* did (accomplishments).
 5. Be concise, supportive, and direct.`
 
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      systemInstruction: systemPrompt
-    })
+    const groq = new Groq({ apiKey })
 
-    // Format history for Gemini
-    const formattedHistory = (history || []).map((msg: any) => ({
-      role: msg.role === "model" ? "model" : "user",
-      parts: [{ text: msg.content }],
-    }))
+    // Build messages array: system + history + new user message
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: systemPrompt }
+    ]
 
-    const chat = model.startChat({
-      history: formattedHistory,
-      generationConfig: {
-        maxOutputTokens: 500,
+    // Format history
+    if (history && Array.isArray(history)) {
+      for (const msg of history) {
+        messages.push({
+          role: msg.role === "model" ? "assistant" : "user",
+          content: msg.content,
+        })
       }
+    }
+
+    messages.push({ role: "user", content: message })
+
+    const completion = await groq.chat.completions.create({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      messages,
+      temperature: 0.4,
+      max_tokens: 500,
     })
 
-    const result = await chat.sendMessage(message)
-    const responseText = result.response.text()
+    const responseText = completion.choices[0]?.message?.content?.trim() || ""
 
     return NextResponse.json({ response: responseText })
     

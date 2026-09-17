@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
-    "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "class-variance-authority": "^0.7.1",
@@ -18,6 +17,7 @@
     "cn": "^0.2.6",
     "cross-env": "^10.1.0",
     "date-fns": "^4.4.0",
+    "groq-sdk": "^1.6.0",
     "lucide-react": "^1.39.0",
     "next": "16.3.4",
     "react": "19.2.8",

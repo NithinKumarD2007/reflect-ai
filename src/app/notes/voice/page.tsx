@@ -293,6 +293,7 @@ export default function VoiceNotePage() {
         finalContent: enhancedText,
         inputMethod: "VOICE",
       })
+      router.refresh()
       router.push("/notes")
     } catch (err: any) {
       console.error(err)
@@ -337,10 +338,10 @@ export default function VoiceNotePage() {
       {(uiState === "READY" || uiState === "RECORDING") && (
         <div className="flex flex-col items-center gap-8 py-8">
           <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {uiState === "RECORDING" ? "Recording..." : "Voice Note"}
             </h1>
-            <p className="text-white/40 text-sm mt-2">
+            <p className="text-muted-foreground text-sm mt-2">
               {uiState === "RECORDING"
                 ? `${formatTime(recordingSeconds)} — tap stop when done`
                 : "Tap the mic and speak naturally"}
@@ -361,19 +362,19 @@ export default function VoiceNotePage() {
               className={`relative z-10 flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-full transition-all duration-200 shadow-2xl active:scale-95 ${
                 uiState === "RECORDING"
                   ? "bg-red-500 hover:bg-red-600 shadow-red-500/30"
-                  : "bg-white hover:bg-white/90 shadow-white/20"
+                  : "bg-primary hover:bg-primary/90 shadow-primary/20"
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               {uiState === "RECORDING"
                 ? <Square className="h-10 w-10 text-white fill-white" />
-                : <Mic className="h-12 w-12 text-black" />}
+                : <Mic className="h-12 w-12 text-primary-foreground" />}
             </button>
           </div>
 
           {/* Live transcript */}
-          <div className="w-full min-h-[120px] bg-white/[0.04] border border-white/10 rounded-xl p-4 text-sm leading-relaxed">
+          <div className="w-full min-h-[120px] bg-card border border-border rounded-xl p-4 text-sm leading-relaxed shadow-lg">
             {!rawText && !interimText ? (
-              <p className="text-white/25 italic text-center mt-6">
+              <p className="text-muted-foreground italic text-center mt-6">
                 {uiState === "RECORDING" ? "Listening..." : "Your transcription will appear here"}
               </p>
             ) : (
@@ -426,7 +427,7 @@ export default function VoiceNotePage() {
           </div>
           <button
             onClick={reset}
-            className="px-6 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all"
+            className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all"
           >
             Try Again
           </button>
@@ -438,8 +439,8 @@ export default function VoiceNotePage() {
         <form onSubmit={handleSave} className="space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wand2 className="h-5 w-5 text-purple-400" />
-              <h1 className="text-lg font-semibold text-white">Review & Save</h1>
+              <Wand2 className="h-5 w-5 text-secondary" />
+              <h1 className="text-lg font-semibold text-foreground">Review & Save</h1>
             </div>
             <button
               type="button"
@@ -487,14 +488,14 @@ export default function VoiceNotePage() {
             <button
               type="button"
               onClick={reset}
-              className="flex-1 h-11 border border-white/15 text-white/60 text-sm font-medium rounded-xl hover:bg-white/5 transition-all"
+              className="flex-1 h-11 border border-border text-muted-foreground text-sm font-medium rounded-xl hover:bg-card hover:text-foreground transition-all"
             >
               Discard
             </button>
             <button
               type="submit"
               disabled={isSaving || !enhancedText.trim()}
-              className="flex-1 h-11 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 h-11 bg-primary text-primary-foreground text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/20"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {isSaving ? "Saving..." : "Save Note"}

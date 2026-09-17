@@ -38,7 +38,10 @@ export default function EditNoteClient({ note }: EditNoteClientProps) {
         finalContent: content.trim(),
       })
       setSuccess(true)
-      setTimeout(() => router.push(`/notes/${note.id}`), 800)
+      setTimeout(() => {
+        router.refresh()
+        router.push(`/notes/${note.id}`)
+      }, 800)
     } catch (err: any) {
       setError(err.message || "Failed to save changes")
     } finally {

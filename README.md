@@ -2,7 +2,7 @@
 
 > **Capture → Remember → Understand → Improve.**
 
-ReflectAI is a production-quality, AI-powered voice notes and personal activity analyzer. It lets you capture thoughts instantly by voice or text, enhance them with Google Gemini AI, and then reflect on your month with honest, evidence-based personal feedback.
+ReflectAI is a production-quality, AI-powered voice notes and personal activity analyzer. It lets you capture thoughts instantly by voice or text, enhance them with Groq AI, and then reflect on your month with honest, evidence-based personal feedback.
 
 ---
 
@@ -14,7 +14,7 @@ Writing down thoughts manually can require time and effort, causing people to lo
 
 ReflectAI allows users to:
 1. **Speak** naturally and have it transcribed in real-time.
-2. **Enhance** the raw transcription using Google Gemini AI — fixing grammar, structure, and readability, without changing the meaning.
+2. **Enhance** the raw transcription using Groq AI (LLaMA 3.3) — fixing grammar, structure, and readability, without changing the meaning.
 3. **Save** notes with automatic timestamps and metadata.
 4. **Analyze** a full month of notes using AI to extract accomplishments, intentions, pending tasks, and behavioral patterns.
 5. **Chat** with an AI assistant that uses your own notes as its source of truth.
@@ -25,7 +25,7 @@ ReflectAI allows users to:
 
 - 🎙️ **Voice Notes** — Browser-native Speech Recognition (Web Speech API), real-time transcription
 - ✍️ **Typed Notes** — Full text editor with optional AI enhancement
-- 🤖 **AI Enhancement** — Gemini-powered cleanup: removes filler words, fixes grammar, structures thoughts
+- 🤖 **AI Enhancement** — Groq-powered cleanup: removes filler words, fixes grammar, structures thoughts
 - 🔍 **Side-by-Side Review** — Always see raw vs. enhanced before saving
 - 📅 **Chronological Timeline** — Notes organized by date with timeline UI
 - 🔎 **Search** — Full-text search across all notes
@@ -45,7 +45,7 @@ User speaks / types
       ↓
 Raw text captured
       ↓
-POST /api/enhance → Gemini AI
+POST /api/enhance → Groq AI (LLaMA 3.3)
       ↓
 AI cleans text, preserves meaning
       ↓
@@ -62,7 +62,7 @@ User selects month
       ↓
 All notes fetched from DB
       ↓
-POST /api/analysis → Gemini AI
+POST /api/analysis → Groq AI (LLaMA 3.3)
       ↓
 AI extracts: accomplishments, intentions, pending, patterns, feedback
       ↓
@@ -77,7 +77,7 @@ User asks question
       ↓
 Last 200 notes fetched as context
       ↓
-POST /api/chat → Gemini AI (with conversation history)
+POST /api/chat → Groq AI (with conversation history)
       ↓
 Evidence-based answer
 ```
@@ -95,8 +95,8 @@ Evidence-based answer
 | Database (Dev) | SQLite |
 | Database (Prod) | PostgreSQL (Supabase / Vercel Postgres) |
 | Auth | NextAuth.js (Auth.js) |
-| AI | Google Gemini API (`gemini-1.5-flash`) |
-| Speech-to-Text | Web Speech API (browser-native, free) |
+| AI | Groq API (`llama-3.3-70b-versatile`) |
+| Speech-to-Text | Web Speech API (browser) + Groq Whisper (fallback) |
 | Deployment | Vercel |
 
 ---
@@ -173,12 +173,12 @@ Create a `.env` file from `.env.example`:
 
 ```env
 DATABASE_URL="file:./dev.db"
-GEMINI_API_KEY="your-google-gemini-api-key"
+GROQ_API_KEY="your-groq-api-key"
 AUTH_SECRET="a-long-random-secret-string"
 NEXTAUTH_URL="http://localhost:3000"
 ```
 
-Get your Gemini API key from: https://aistudio.google.com/app/apikey
+Get your Groq API key from: https://console.groq.com
 
 ---
 
@@ -194,7 +194,7 @@ npm install
 
 # 3. Set up environment variables
 cp .env.example .env
-# Fill in your GEMINI_API_KEY in .env
+# Fill in your GROQ_API_KEY in .env
 
 # 4. Initialize the database
 npx prisma db push
@@ -236,7 +236,7 @@ Visit `http://localhost:3000`. Enter any email + password (min 6 chars) to auto-
 
 - Notes are stored in your own database (local SQLite in dev, your own Postgres in production).
 - API keys are server-side only and never exposed to the client.
-- AI processing is ephemeral — notes are sent to Gemini only during active requests.
+- AI processing is ephemeral — notes are sent to Groq only during active requests.
 - Authentication is session-based with JWT tokens.
 - No note content is placed in URLs.
 
