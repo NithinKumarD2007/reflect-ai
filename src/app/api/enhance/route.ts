@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server"
-import Groq from "groq-sdk"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey || apiKey === "your-groq-api-key-here") {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
       return NextResponse.json({
-        error: "Groq API key is not configured. Please add your GROQ_API_KEY to the .env file and restart the server."
+        error: "AI is not configured. Please add your GEMINI_API_KEY to the .env file and restart the server."
       }, { status: 500 })
     }
 
@@ -23,14 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 })
     }
 
-    const groq = new Groq({ apiKey })
-
-    const completion = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: `You are an AI assistant that enhances raw voice notes.
+    const prompt = `You are an AI assistant that enhances raw voice notes.
 The user dictates notes that may contain filler words, repeated words, broken sentences, or lack structure.
 Your job is to clean up the transcription.
 
@@ -43,18 +35,37 @@ Rules:
 6. Do NOT invent events, achievements, tasks, or facts.
 7. Do NOT convert intentions (e.g., "I need to learn React") into accomplishments (e.g., "Learned React").
 8. Maintain the original tone but make it professional and readable.
-9. Return ONLY the enhanced note text, nothing else.`
-        },
-        {
-          role: "user",
-          content: `Raw Transcription:\n"${text}"\n\nEnhanced Version:`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 2048,
-    })
+9. Return ONLY the enhanced note text, nothing else. No preamble, no explanation.
 
-    const enhancedText = completion.choices[0]?.message?.content?.trim() || ""
+Raw Transcription:
+"${text}"
+
+Enhanced Version:`
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2048,
+          },
+        }),
+      }
+    )
+
+    if (!geminiRes.ok) {
+      const errBody = await geminiRes.json()
+      console.error("Gemini API error:", JSON.stringify(errBody))
+      throw new Error(errBody?.error?.message || `Gemini responded with ${geminiRes.status}`)
+    }
+
+    const geminiData = await geminiRes.json()
+    const enhancedText =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ""
 
     if (!enhancedText) {
       throw new Error("AI returned empty response")

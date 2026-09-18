@@ -6,7 +6,7 @@ import { format } from "date-fns"
 import {
   Mic, PenLine, Sparkles, Calendar, Clock, FileText,
   BrainCircuit, ChevronRight, TrendingUp, Zap, ArrowUpRight,
-  BarChart3, Activity
+  BarChart3, Activity, Plus
 } from "lucide-react"
 
 function getGreeting() {
@@ -106,35 +106,16 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
-            <Link href="/notes/voice">
-              <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.97]">
-                <Mic className="h-4 w-4" />
-                Record Voice
-              </button>
-            </Link>
-            <Link href="/notes/new">
-              <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white/10 text-white text-sm font-medium rounded-xl border border-white/20 hover:bg-white/20 transition-all shadow-lg shadow-secondary/20 hover:shadow-secondary/30 active:scale-[0.97]">
-                <PenLine className="h-4 w-4" />
-                New Note
+            <Link href="/notes/new" aria-label="Create new note">
+              <button className="flex items-center justify-center h-10 w-10 bg-primary/20 hover:bg-primary/30 text-primary-foreground rounded-full transition-all">
+                <Plus className="h-5 w-5" />
               </button>
             </Link>
           </div>
         </div>
       </div>
 
-      {notes.length === 0 ? (
-        <div className="bg-white/[0.03] border border-dashed border-white/15 rounded-2xl p-12 text-center max-w-2xl mx-auto mt-12 shadow-2xl">
-          <div className="h-20 w-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="h-10 w-10 text-white/20" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-3">Your dashboard is empty</h2>
-          <p className="text-white/40 text-base max-w-md mx-auto leading-relaxed">
-            Create your first voice note or typed entry. AI will transcribe, enhance, and organize your thoughts automatically.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* ── Stats Grid ── */}
+      {/* ── Stats Grid ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Notes */}
         <div className="group relative bg-card border border-border rounded-xl p-4 sm:p-5 hover:border-primary/50 transition-all duration-300 shadow-lg">
@@ -191,39 +172,7 @@ export default async function DashboardPage() {
         {/* ── Left Column: Recent Notes ── */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Quick Action Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Link href="/notes/voice" className="group block">
-              <div className="relative overflow-hidden bg-card border border-border rounded-xl p-5 hover:border-secondary/50 transition-all duration-300 shadow-lg">
-                <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <Mic className="h-24 w-24 text-purple-400" />
-                </div>
-                <div className="relative">
-                  <div className="h-10 w-10 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center mb-3">
-                    <Mic className="h-5 w-5 text-purple-400" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-white mb-1">Record Voice Note</h3>
-                  <p className="text-xs text-white/35 leading-relaxed">Speak naturally. AI transcribes and enhances your words.</p>
-                </div>
-                <ArrowUpRight className="absolute top-4 right-4 h-4 w-4 text-purple-400/40 group-hover:text-purple-400/70 transition-colors" />
-              </div>
-            </Link>
-            <Link href="/notes/new" className="group block">
-              <div className="relative overflow-hidden bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-all duration-300 shadow-lg">
-                <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <PenLine className="h-24 w-24 text-sky-400" />
-                </div>
-                <div className="relative">
-                  <div className="h-10 w-10 rounded-xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center mb-3">
-                    <PenLine className="h-5 w-5 text-sky-400" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-white mb-1">Write a Note</h3>
-                  <p className="text-xs text-white/35 leading-relaxed">Type your thoughts. Optionally enhance with AI.</p>
-                </div>
-                <ArrowUpRight className="absolute top-4 right-4 h-4 w-4 text-sky-400/40 group-hover:text-sky-400/70 transition-colors" />
-              </div>
-            </Link>
-          </div>
+          {/* Removed duplicate quick action cards */}
 
           {/* Recent Notes Section */}
           <div>
@@ -238,27 +187,7 @@ export default async function DashboardPage() {
             </div>
 
             {notes.length === 0 ? (
-              <div className="bg-white/[0.03] border border-dashed border-white/15 rounded-2xl p-8 sm:p-10 text-center">
-                <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                  <FileText className="h-7 w-7 text-white/15" />
-                </div>
-                <p className="text-white/60 text-base font-medium">No notes yet</p>
-                <p className="text-white/30 text-sm mt-2 max-w-sm mx-auto">
-                  Record your first voice note or type one out. AI will enhance and organize your thoughts automatically.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
-                  <Link href="/notes/voice">
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all w-full sm:w-auto">
-                      <Mic className="h-4 w-4" /> Record Voice
-                    </button>
-                  </Link>
-                  <Link href="/notes/new">
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-white/10 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition-all w-full sm:w-auto">
-                      <PenLine className="h-4 w-4" /> Type a Note
-                    </button>
-                  </Link>
-                </div>
-              </div>
+              <p className="text-sm text-white/40 italic py-4">No notes yet.</p>
             ) : (
               <div className="space-y-2">
                 {notes.slice(0, 5).map((note) => {
@@ -411,8 +340,6 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
-      </>
-      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { updateNote } from "@/actions/notes"
 import { Input } from "@/components/ui/input"
@@ -21,8 +21,14 @@ interface EditNoteClientProps {
 export default function EditNoteClient({ note }: EditNoteClientProps) {
   const router = useRouter()
   const [title, setTitle] = useState(note.title || "")
-  const [content, setContent] = useState(note.finalContent)
+  const [content, setContent] = useState(note.finalContent || "")
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    setTitle(note.title || "")
+    setContent(note.finalContent || "")
+  }, [note])
+
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
@@ -58,7 +64,7 @@ export default function EditNoteClient({ note }: EditNoteClientProps) {
             <ArrowLeft className="h-5 w-5" />
           </button>
         </Link>
-        <h1 className="text-lg font-semibold text-white">Edit Note</h1>
+        <h1 className="text-lg font-semibold text-foreground">Edit Note</h1>
       </div>
 
       {error && (
@@ -76,34 +82,34 @@ export default function EditNoteClient({ note }: EditNoteClientProps) {
       <form onSubmit={handleSave} className="space-y-4">
         {/* Title */}
         <div>
-          <label className="text-xs font-medium text-white/40 mb-1.5 block">Title</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Title</label>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Note title (optional)"
-            className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-white/20 h-11"
+            className="bg-white/5 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary h-11"
           />
         </div>
 
         {/* Content */}
         <div>
-          <label className="text-xs font-medium text-white/40 mb-1.5 block">Content</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Content</label>
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Note content..."
-            className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:ring-white/20 min-h-[300px] sm:min-h-[400px] resize-y text-sm leading-relaxed"
+            className="bg-white/5 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary min-h-[300px] sm:min-h-[400px] resize-y text-sm leading-relaxed"
             required
           />
         </div>
 
         {/* Original transcript (read-only, preserved) */}
         {note.rawContent && (
-          <div className="bg-white/[0.02] border border-white/8 rounded-xl p-4">
-            <p className="text-xs text-white/25 font-medium uppercase tracking-wider mb-2">
+          <div className="bg-card border border-border rounded-xl p-4">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">
               Original Transcription (preserved, not editable)
             </p>
-            <p className="text-white/30 text-sm leading-relaxed">{note.rawContent}</p>
+            <p className="text-foreground/70 text-sm leading-relaxed">{note.rawContent}</p>
           </div>
         )}
 
@@ -112,7 +118,7 @@ export default function EditNoteClient({ note }: EditNoteClientProps) {
           <Link href={`/notes/${note.id}`} className="flex-1">
             <button
               type="button"
-              className="w-full h-11 border border-white/15 text-white/60 text-sm font-medium rounded-xl hover:bg-white/5 transition-all"
+              className="w-full h-11 border border-border text-muted-foreground text-sm font-medium rounded-xl hover:bg-muted transition-all"
             >
               Cancel
             </button>
@@ -120,7 +126,7 @@ export default function EditNoteClient({ note }: EditNoteClientProps) {
           <button
             type="submit"
             disabled={isSaving || !content.trim() || success}
-            className="flex-1 h-11 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            className="flex-1 h-11 bg-primary text-primary-foreground text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {isSaving ? "Saving..." : "Save Changes"}

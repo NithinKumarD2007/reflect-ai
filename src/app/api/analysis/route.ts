@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import Groq from "groq-sdk"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
@@ -11,10 +10,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 })
     }
 
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey || apiKey === "your-groq-api-key-here") {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
       return NextResponse.json({
-        error: "Groq API key is not configured. Please add your GROQ_API_KEY to the .env file and restart the server."
+        error: "AI is not configured. Please add your GEMINI_API_KEY to the .env file and restart the server."
       }, { status: 500 })
     }
 
@@ -38,30 +37,25 @@ export async function POST(req: Request) {
     if (dbError) throw dbError
 
     if (!notes || notes.length === 0) {
-      return NextResponse.json({ 
-        error: "Not enough notes yet", 
-        message: "Add more notes during the month and the AI will have more information to analyze." 
+      return NextResponse.json({
+        error: "Not enough notes yet",
+        message: "Add more notes during the month and the AI will have more information to analyze."
       }, { status: 404 })
     }
 
-    const groq = new Groq({ apiKey })
-
     // Prepare context
-    const notesContext = notes.map(n => `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`).join("\n\n")
+    const notesContext = notes.map(n =>
+      `[${new Date(n.createdAt).toISOString()}] ${n.title || 'Note'}: ${n.finalContent}`
+    ).join("\n\n")
 
-    const completion = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: `You are an AI Personal Activity Analyzer.
+    const prompt = `You are an AI Personal Activity Analyzer.
 Analyze the following personal notes from a user for a specific month.
 
 Your task is to extract and categorize their activity based STRICTLY on evidence in the notes.
 Do NOT hallucinate or invent events, tasks, or facts.
 If there isn't enough evidence to make a conclusion for a section, return an empty array or state "There isn't enough information in your notes to determine this."
 
-You MUST respond with a valid JSON object (no markdown, no code blocks) matching this exact schema:
+You MUST respond with a valid JSON object (no markdown, no code blocks, no backticks) matching this EXACT schema:
 {
   "accomplishments": ["string"],
   "intentions": ["string"],
@@ -72,22 +66,49 @@ You MUST respond with a valid JSON object (no markdown, no code blocks) matching
     "improve": ["string"],
     "recommendations": ["string"]
   }
-}`
-        },
-        {
-          role: "user",
-          content: `Here are my notes for analysis:\n\n${notesContext}`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 2048,
-      response_format: { type: "json_object" },
-    })
+}
 
-    const responseText = completion.choices[0]?.message?.content?.trim() || "{}"
-    const analysis = JSON.parse(responseText)
+Here are the user's notes for analysis:
 
-    return NextResponse.json({ 
+${notesContext}`
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+          },
+        }),
+      }
+    )
+
+    if (!geminiRes.ok) {
+      const errBody = await geminiRes.json()
+      console.error("Gemini API error:", JSON.stringify(errBody))
+      throw new Error(errBody?.error?.message || `Gemini responded with ${geminiRes.status}`)
+    }
+
+    const geminiData = await geminiRes.json()
+    const responseText =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "{}"
+
+    let analysis: any
+    try {
+      // Strip markdown code fences if Gemini wraps the JSON anyway
+      const cleaned = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
+      analysis = JSON.parse(cleaned)
+    } catch {
+      console.error("Failed to parse Gemini JSON response:", responseText)
+      throw new Error("AI returned an invalid response. Please try again.")
+    }
+
+    return NextResponse.json({
       analysis,
       stats: {
         total: notes.length,

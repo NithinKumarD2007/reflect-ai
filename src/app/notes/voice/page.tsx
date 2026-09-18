@@ -379,8 +379,8 @@ export default function VoiceNotePage() {
               </p>
             ) : (
               <p>
-                <span className="text-white/80">{rawText}</span>
-                <span className="text-white/40">{interimText}</span>
+                <span className="text-foreground font-medium">{rawText}</span>
+                <span className="text-muted-foreground">{interimText}</span>
               </p>
             )}
           </div>
@@ -406,7 +406,7 @@ export default function VoiceNotePage() {
 
       {/* ENHANCING */}
       {uiState === "ENHANCING" && (
-        <div className="flex flex-col items-center gap-6 py-16">
+        <div className="flex flex-col items-center gap-6 py-10">
           <div className="h-20 w-20 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
             <Sparkles className="h-8 w-8 text-purple-400 animate-pulse" />
           </div>
@@ -414,6 +414,15 @@ export default function VoiceNotePage() {
             <p className="text-white font-medium">Enhancing with AI...</p>
             <p className="text-white/40 text-sm mt-1">Fixing grammar and structuring your note</p>
           </div>
+          {/* Show the raw transcript so the user can see what was captured */}
+          {rawText && (
+            <div className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4">
+              <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Mic className="h-3 w-3" /> Transcribed text
+              </p>
+              <p className="text-white/60 text-sm leading-relaxed">{rawText}</p>
+            </div>
+          )}
         </div>
       )}
 

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey || apiKey === "your-groq-api-key-here") {
+    if (!apiKey) {
       return NextResponse.json({
         error: "Groq API key is not configured. Please add your GROQ_API_KEY to the .env file and restart the server."
       }, { status: 500 })

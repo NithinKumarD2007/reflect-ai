@@ -24,7 +24,7 @@ export async function saveNote(data: {
       title: data.title?.trim() || "Untitled Note",
       rawContent: data.rawContent || null,
       enhancedContent: data.enhancedContent || null,
-      finalContent: data.finalContent,
+      finalContent: data.finalContent?.trim() || data.rawContent?.trim() || "Empty note",
       inputMethod: data.inputMethod,
       tags: data.tags?.join(",") || null,
       category: data.category || null,
@@ -65,7 +65,7 @@ export async function updateNote(id: string, data: {
     .from("notes")
     .update({
       title: data.title?.trim() || "Untitled Note",
-      finalContent: data.finalContent,
+      finalContent: data.finalContent?.trim() || "Empty note",
       updatedAt: new Date().toISOString(),
     })
     .eq("id", id)
